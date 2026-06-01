@@ -74,7 +74,7 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
     
     # saving the simulated data (observations, states, emission probabilities, and transition matrix) as .npz file in the save directory
     if save_obs:
-        np.savez(os.path.join(save_dir, "simulated_data.npz"), states=states, emissions=emissions, emission_prob=emission_prob, transition_matrix=P)
+        np.savez(os.path.join(save_dir, "simulated_data.npz"), states=states, observations=emissions, emission_prob=emission_prob, transition_matrix=P)
 
 
 

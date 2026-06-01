@@ -198,7 +198,7 @@ class PoissonHMM:
         return log_gamma # T x N
     
 
-    def forward_backward(self, transition_update_mask = None, save_dir = None, use_cloned_emissions = False):
+    def forward_backward(self, transition_update_mask = None, use_cloned_emissions = False):
         '''using the forward backward algorithm to update the transition matrix (A) and the emissions matrix (B) using the forward and backwards probabilities'''
 
         #---------------------------Expectation----------------------------------
@@ -220,18 +220,6 @@ class PoissonHMM:
 
         # compute gamma
         log_gamma = self.compute_log_gamma(self.log_alpha, self.log_beta) # T x N
-
-        if save_dir is not None:
-            # plot the xi values as a heatmap
-            avg_log_xi = logsumexp(log_xi, axis=0) - np.log(log_xi.shape[0]) # N x N
-            avg_xi = np.exp(avg_log_xi)
-            plt.figure(figsize=(22, 20))
-            sns.heatmap(avg_xi, annot=True, fmt=".1e", cmap="Greys" )
-            plt.title("Average Xi Values (Transition Probabilities)")
-            plt.xlabel("Next State")
-            plt.ylabel("Current State")
-            plt.savefig(os.path.join(save_dir, "average_xi_heatmap.png"))
-            plt.close()
 
 
 
@@ -314,7 +302,7 @@ class PoissonHMM:
 
 
             # run the forward backwards pass
-            A_hat, B_hat, pi_hat = self.forward_backward(transition_update_mask = transition_update_mask, save_dir = current_save_dir, use_cloned_emissions = use_cloned_emissions)
+            A_hat, B_hat, pi_hat = self.forward_backward(transition_update_mask = transition_update_mask, use_cloned_emissions = use_cloned_emissions)
 
             # update the transition matrix
             self.A = A_hat
