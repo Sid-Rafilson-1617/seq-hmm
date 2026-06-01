@@ -2,7 +2,6 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from custom_hmm import calculate_cloned_transition_matrix
 import os
 import time
 
