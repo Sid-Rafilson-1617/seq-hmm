@@ -334,7 +334,7 @@ def calculate_cloned_transition_matrix(alpha: float, sequenceLength: int, nSeque
 
 
 
-def assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1, sigma=1.0, epsilon=1e-2):
+def assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1, sigma=1.0, epsilon=1e-3):
 
     '''assign emission probabilities for each state in the cloned HMM, given the parameters of the Gaussian tuning curves and the number of neurons and states
     
