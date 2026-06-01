@@ -11,8 +11,6 @@ from scipy.stats import poisson
 
 
 
-
-
 class PoissonHMM:
     
     def __init__(self, A, B, pi, eps=1e-12):
@@ -264,7 +262,7 @@ class PoissonHMM:
 
         gamma = np.exp(log_gamma)
 
-        if use_cloned_emissions:\
+        if use_cloned_emissions:
         
             nSequenceStates = (self.N - 1) // 2
             B_hat = np.zeros_like(self.B)
@@ -294,8 +292,11 @@ class PoissonHMM:
                 / gamma.sum(axis=0)[:, None]
             ) # N x D
 
+        # recompute the prior distribution
+        pi_hat = np.exp(log_gamma[0])
+
             
-        return A_hat, B_hat
+        return A_hat, B_hat, pi_hat
     
 
     def fit_em(self, Niters, use_cloned_emissions = False, transition_update_mask = None, save_dir = None):
@@ -313,7 +314,7 @@ class PoissonHMM:
 
 
             # run the forward backwards pass
-            A_hat, B_hat = self.forward_backward(transition_update_mask = transition_update_mask, save_dir = current_save_dir, use_cloned_emissions = use_cloned_emissions)
+            A_hat, B_hat, pi_hat = self.forward_backward(transition_update_mask = transition_update_mask, save_dir = current_save_dir, use_cloned_emissions = use_cloned_emissions)
 
             # update the transition matrix
             self.A = A_hat
@@ -339,5 +340,18 @@ class PoissonHMM:
             # compute the log-likelihood
             llhs[iter + 1] = logsumexp(log_alpha[-1])
 
+            # update the prior distribution
+            self.pi = pi_hat
+            self.log_pi = np.log(self.pi + self.eps)
+
         return llhs
+    
+
+    def compute_log_likelihood(self):
+        '''compute the log-likelihood of the observations given the model'''
+
+        log_alpha = self.forward_probability()
+        log_likelihood = logsumexp(log_alpha[-1])
+
+        return log_likelihood
 
