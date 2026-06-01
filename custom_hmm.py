@@ -355,3 +355,89 @@ class PoissonHMM:
 
         return log_likelihood
 
+
+
+def make_transition_update_mask(P):
+    '''make a boolean mask for which entries in the transition matrix to update during EM (true = update, false = freeze)'''
+    # make the transition update mask (true = update, false = freeze)
+    transition_update_mask = np.zeros_like(P, dtype = bool)
+    transition_update_mask[0,:] = True
+    transition_update_mask[:, 0] = True
+
+    nSequenceStates = (P.shape[0] - 1) // 2
+    for i in range(nSequenceStates):
+        transition_update_mask[i + 1, i + 2] = True
+        transition_update_mask[nSequenceStates + i + 1, nSequenceStates + i] = True
+
+    return transition_update_mask
+
+
+def cv_split(K: int, fold: int, r: float, T: int, verbose = False):
+    '''
+    Make K contiguous splits of the data for cross validation, where each split uses a proportion r of the data for training and the rest for testing. The splits are contiguous in time to preserve temporal structure.
+
+    Parameters:
+    K: number of folds
+    fold: current fold number
+    r: proportion of data to use for training in each fold
+    T: total number of time steps in the data
+
+    Returns:
+    train_indices: a list of K arrays, where each array contains the indices of the training data for that fold
+    test_indices: a list of K arrays, where each array contains the indices of the testing
+    '''
+
+    fold_size = np.floor(r * T)
+    delta = np.floor((T - fold_size) / (K - 1))
+    train_starts = np.arange(0, T - fold_size + delta, delta).astype(int)
+    train_indices = [np.arange(start, start + fold_size).astype(int) for start in train_starts]
+    test_indices = [np.setdiff1d(np.arange(T), train_idx) for train_idx in train_indices]
+
+    if verbose:
+        print(f'Total time steps: {T}')
+        print(f'Fold size (training data): {fold_size}')
+        print(f'Delta between fold starts: {delta}')
+        print(f'Train start indices: {train_starts}')
+
+    # only keep the current fold's train and test indices
+    train_indices = train_indices[fold]
+    test_indices = test_indices[fold]
+
+    return train_indices, test_indices
+
+
+def initialization(N, emissions, transition_update_mask):
+
+    # draw random initial transition matrix from a dirichlet distribution
+    initial_A = np.random.dirichlet(np.ones(N), size=N)
+
+    # Set the off-diagonal and non-sequence transitions to zero to enforce the structure of the cloned transition matrix
+    initial_A = np.where(
+        transition_update_mask,
+        initial_A,
+        0.0
+    )
+
+    # renormalize the rows to sum to 1
+    row_sums = initial_A.sum(axis=1, keepdims=True)
+    if np.any(row_sums == 0):
+        raise ValueError("At least one row of initial_A has no allowed transitions.")
+    initial_A = initial_A / row_sums
+
+
+    #set the initial_emission_rates as the mean rate for each neuron across all time points
+    initial_emission_rates = emissions.mean(axis=0)
+
+    # convert to matrix with shape (nStates, emission_dim)
+    initial_emission_rates = np.repeat(initial_emission_rates[None, :], N, axis=0)
+
+    # add some noise to the initial rates to break symmetry
+    initial_emission_rates += 1e-2 * np.random.normal(size=initial_emission_rates.shape)
+
+    # make sure all rates are positive
+    initial_emission_rates = np.clip(initial_emission_rates, a_min=1e-9, a_max=3)
+
+    # initialize the prior probabilties pi
+    initial_pi = np.ones(N) / N
+
+    return initial_A, initial_emission_rates, initial_pi

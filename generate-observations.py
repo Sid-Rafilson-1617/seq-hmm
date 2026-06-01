@@ -62,32 +62,8 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
         states[t] = np.random.choice(nStates, p=P[states[t-1]])
 
 
-    # draw the lambda parameters for the Poisson emissions from a lognormal distribution (this is a common choice for a prior on Poisson rates)
-    emission_prob = np.zeros((nStates, emission_dim))
-    print(emission_prob.shape)
-
-    nStates = P.shape[0]
-    pairs = []
-    for seq in range(nSequences):
-        for step in range(sequenceLength):
-            new_pair = (seq * 2 * sequenceLength + step + 1, seq * 2 * sequenceLength  + sequenceLength + step + 1)
-            pairs.append(new_pair)
-    print(pairs)
-
-
-    # set the emission probabilities for the paired states to be the same (these are the cloned states that have the same emissions as the forward sequence states)
-    for pair in pairs:
-        emissions = np.random.lognormal(
-            mean=-3,
-            sigma=1.2,
-            size=(emission_dim,)
-        )
-        # clip the emissions at 2Hz
-        emissions = emissions.clip(0, 2)
-        emission_prob[pair[1], :], emission_prob[pair[0], :] = emissions, emissions
-
-    # set the emission prob in state zero to be the median across all the other states
-    emission_prob[0, :] = np.median(emission_prob[1:, :], axis=0)
+    # get the emission probabilities for each state
+    emission_prob = assign_emissions(emission_dim, sequenceLength, nSequences, alpha=10, beta=0.1, sigma=1.0, epsilon=0.1)
 
 
     # simulate emissions from the HMM given the state sequence and the emission probabilities
@@ -96,15 +72,9 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
         emissions[t] = np.random.poisson(lam=emission_prob[states[t]])
 
     
-    # saving the simulated observations as .npy files in the save directory
+    # saving the simulated data (observations, states, emission probabilities, and transition matrix) as .npz file in the save directory
     if save_obs:
-        np.save(os.path.join(save_dir, "states.npy"), states)
-        np.save(os.path.join(save_dir, "emissions.npy"), emissions)
-        np.save(os.path.join(save_dir, "emission_prob.npy"), emission_prob)
-        np.save(os.path.join(save_dir, "transition_matrix.npy"), P)
-
-
-
+        np.savez(os.path.join(save_dir, "simulated_data.npz"), states=states, emissions=emissions, emission_prob=emission_prob, transition_matrix=P)
 
 
 
@@ -112,8 +82,6 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
     #------------------------------------------------------PLOTTING---------------------------------------------------------------
 
     if show_plots:
-
-
 
         # plot the transition matrix
         plt.figure(figsize=(8, 6))
@@ -366,6 +334,80 @@ def calculate_cloned_transition_matrix(alpha: float, sequenceLength: int, nSeque
 
 
 
+def assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1, sigma=1.0, epsilon=1e-2):
+
+    '''assign emission probabilities for each state in the cloned HMM, given the parameters of the Gaussian tuning curves and the number of neurons and states
+    
+    Parameters
+    ----------
+    emission_dim : int
+        the number of neurons we are simulating
+    sequenceLength : int
+        the number of latent states in each sequence
+    nSequences : int
+        the total number of sequences
+    alpha : float
+        the peak firing rate for the Gaussian tuning curves
+    beta : float
+        the baseline firing rate for the neurons
+    sigma : float
+        the standard deviation of the Gaussian tuning curves
+    epsilon : float
+        the standard deviation of the noise added to the emissions
+
+    Returns
+    -------
+    emissions : np.ndarray
+        the emission probabilities for each state
+    '''
+
+    nStates = 1 + 2 * sequenceLength * nSequences
+    emissions = np.zeros((nStates, emission_dim)) + beta + np.random.normal(scale=epsilon, size=(nStates, emission_dim)) # initialize all emissions to the baseline firing rate (beta) with added noise
+
+    # randomly assign each neuron to a forward state
+    tuned_states = np.random.choice(
+        np.arange(1, 1 + sequenceLength * nSequences),
+        size=emission_dim,
+        replace=True
+    )
+
+
+
+    # get the sequence boundaries for clipping 
+    sequence_boundaries = np.arange(1, 1 + sequenceLength * nSequences, sequenceLength)
+
+    # assign the emission probabilities for each neuron based on the forward state it is tuned to (these are the same for the reverse states)
+    for neuron in range(emission_dim):
+        tuned_state = tuned_states[neuron]
+        seq_boundary = sequence_boundaries[
+            (sequence_boundaries <= tuned_state),
+        ][-1]
+
+        # build a Gaussian-shaped tuning curve around the tuned state, clipped at the sequence boundaries
+        for state in range(seq_boundary, seq_boundary + sequenceLength):
+            squared_diff = (state - tuned_state) ** 2
+            emissions[state, neuron] = alpha * np.exp(-squared_diff / (2 * sigma ** 2)) + beta  + np.random.normal(scale=epsilon)
+
+        # clip any emissions that are below a small value to avoid numerical issues with log(0) in the HMM
+        emissions[:, neuron] = np.clip(emissions[:, neuron], a_min=1e-9, a_max=None)
+
+
+    # get the paris to assign reverse sequence emissions
+    pairs = []
+    for seq in range(nSequences):
+        for step in range(sequenceLength):
+            new_pair = ((seq * sequenceLength + step + 1, seq * sequenceLength + nSequences * sequenceLength + step + 1))
+            pairs.append(new_pair)
+
+    # assign the same emission probabilities to the reverse states
+    for forward_state, reverse_state in pairs:
+        emissions[reverse_state] = emissions[forward_state]
+
+    return emissions
+
+
 
 if __name__ == "__main__":
-    generate_observations()
+
+    # run the main function with some default parameters
+    generate_observations(alpha = 0.1, sequenceLength = 5, nSequences = 2, emission_dim = 100, Nsteps = 20_000, base_save_dir = r'C:\Users\srafi\OneDrive\NeuroStatsLab\sequence-detection-figures', show_plots = True, plot_len = 100, save_obs = True)
