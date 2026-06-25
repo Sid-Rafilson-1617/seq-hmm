@@ -1,12 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=hmm_cv
-#SBATCH --output=logs/hmm_cv_%j.out
-#SBATCH --error=logs/hmm_cv_%j.err
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=128
+#SBATCH --job-name=hmm_full
+#SBATCH --output=logs/hmm_full_%j.out
+#SBATCH --error=logs/hmm_full_%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=96
 #SBATCH --cpus-per-task=1
-#SBATCH --time=24:00:00
-#SBATCH --mem=0
+#SBATCH --time=48:00:00
+#SBATCH --mem-per-cpu=15G
+#SBATCH -C genoa
+
+
 
 set -euo pipefail
 
@@ -15,7 +18,7 @@ cd /mnt/home/srafilson/code/sequences
 module load python
 source .venv/bin/activate
 
-mkdir -p logs results_20260618/full_fit
+mkdir -p logs results/cv
 
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1

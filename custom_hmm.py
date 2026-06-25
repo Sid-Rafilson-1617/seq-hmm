@@ -57,12 +57,10 @@ class PoissonHMM:
     def compute_emissions(self):
         '''compute the emission probabilities of the observations given the emission probability matrix (B)'''
 
-        self.log_emissions_by_dim = poisson.logpmf(
-            self.obs[:, None, :],
-            self.B[None, :, :]
-        )
-
-        self.log_emissions = self.log_emissions_by_dim.sum(axis=2)
+        # Loop over states to avoid allocating a (T, N, D) intermediate (~N× smaller peak memory)
+        self.log_emissions = np.empty((self.T, self.N))
+        for n in range(self.N):
+            self.log_emissions[:, n] = poisson.logpmf(self.obs, self.B[n]).sum(axis=1)
 
     
     def set_observations(self, obs):
