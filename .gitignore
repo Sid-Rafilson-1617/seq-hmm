@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+
+# Virtual environments
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+logs/
+*.log
+tasks/
+*disBatch*
+
+# Results
+results/
+results_*/
+
+# Data
+data/
+*.npz
+*.npy
+*.csv
+
+
+# Figures
+figures/
+*.png
+*.pdf
+
+# fit results
+results*
+
+

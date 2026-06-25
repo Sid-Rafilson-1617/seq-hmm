@@ -2,7 +2,6 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from custom_hmm import calculate_cloned_transition_matrix
 import os
 import time
 
@@ -49,7 +48,7 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
 
     '''
 
-    save_dir = os.path.join(base_save_dir, f"cloned-HMM-simulated-data-alpha-{alpha}-sequenceLength-{sequenceLength}_nSequences-{nSequences}_emissionDim-{emission_dim}_Nsteps-{Nsteps}_{time.strftime('%Y-%m-%d-%H-%M-%S')}")
+    save_dir = os.path.join(base_save_dir, f"cloned-HMM-simulated-data-{time.strftime('%Y-%m-%d-%H-%M-%S')}")
     os.makedirs(save_dir, exist_ok=True)
 
     # Compute the transition matrix given the free paramerters
@@ -63,7 +62,7 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
 
 
     # get the emission probabilities for each state
-    emission_prob = assign_emissions(emission_dim, sequenceLength, nSequences, alpha=10, beta=0.1, sigma=1.0, epsilon=0.1)
+    emission_prob = assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1, sigma=1.0, epsilon=0.01)
 
 
     # simulate emissions from the HMM given the state sequence and the emission probabilities
@@ -89,7 +88,8 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
         # overlay the numbers for the transition probabilities
         for i in range(nStates):
             for j in range(nStates):
-                plt.text(j + 0.5, i + 0.5, f"{(P[i, j] * 100):.0f}", ha="center", va="center", color="black")
+                #plt.text(j + 0.5, i + 0.5, f"{(P[i, j] * 100):.0f}", ha="center", va="center", color="black")
+                continue
         plt.title("Transition Matrix with Sequences")
         plt.xlabel("To State")
         plt.ylabel("From State")
@@ -129,7 +129,6 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
         axs[1].set_ylabel("Neuron")
         plt.savefig(os.path.join(save_dir, "emission_prob_matrix.png"))
         plt.close()
-
 
 
         from matplotlib.gridspec import GridSpec
@@ -234,10 +233,10 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
 
         for i in range(nSequences):
 
-            forward_start = 1 + i * 2 * sequenceLength
+            forward_start = 1 + i * sequenceLength
             forward_end = forward_start + sequenceLength
 
-            reverse_start = forward_end
+            reverse_start = 1 + nSequences * sequenceLength + i * sequenceLength
             reverse_end = reverse_start + sequenceLength
 
             ax_state.axhspan(
@@ -254,6 +253,8 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
                 alpha=0.1
             )
 
+
+
         sns.despine()
         plt.savefig(os.path.join(save_dir, "simulated_sequences.png"))
         plt.close()
@@ -265,29 +266,8 @@ def generate_observations(alpha: float = 0.1, sequenceLength: int = 5, nSequence
 
 #--------------------------------------------------------------------------------------UTILITIES---------------------------------------------------------------
 
-def calculate_cloned_transition_matrix(alpha: float, sequenceLength: int, nSequences: int, verbose: bool = False, transition_epsilon: float = 1e-8):
 
-
-    '''calculate the transition matrix for the cloned HMM given the free parameters (alpha, beta, gamma)
-
-    Parameters
-    ----------
-    alpha : float
-        the probability of staying in the non sequence state. This is the only free parameter we have to set, the rest of the transition probabilities are determined by this and the sequence length and number of sequences
-    sequenceLength : int
-        the number of latent states in each sequence
-    nSequences : int
-        the total number of sequences
-    verbose : bool
-        whether to print the calculated probabilities
-    transition_epsilon : float
-        a small value to add to the transition matrix to avoid exact zeros
-
-    Returns
-    -------
-    P : np.ndarray
-        the transition matrix
-    '''
+def calculate_cloned_transition_matrix(alpha, sequenceLength, nSequences, verbose=False, transition_epsilon=1e-8):
 
     # the total number of states is the number of sequences times the sequence length and we add one for the non-sequence state
     nStates = sequenceLength * nSequences + 1
@@ -311,18 +291,16 @@ def calculate_cloned_transition_matrix(alpha: float, sequenceLength: int, nSeque
     start = None
     for i in range(nSequences):
         start = 1 if start is None else end + 1
-        end = start + 2 * sequenceLength - 1
+        end = start + sequenceLength - 1
 
         for idx, j in enumerate(range(start, end + 1)):
 
-            # set the beta values for the forward sequence
+            # set the beta values for the forward  and reverse sequences
             if idx < sequenceLength - 1:
                 P[j, j + 1] = beta
+                P[j + (nStates - 1), j + (nStates - 1)  -1] = beta
 
-            # set the beta values for the reverse sequence (these are the cloned states that have the same emission probabilities as the forward sequence states)
             elif idx > sequenceLength:
-                P[j, j - 1] = beta
-            else:
                 P[j, 0] = 1
 
     # Tiny smoothing avoids exact zeros that can make EM objective report -inf via log(0).
@@ -331,7 +309,6 @@ def calculate_cloned_transition_matrix(alpha: float, sequenceLength: int, nSeque
         P = P / P.sum(axis=1, keepdims=True)
 
     return P
-
 
 
 def assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1, sigma=1.0, epsilon=1e-3):
@@ -386,13 +363,13 @@ def assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1
         # build a Gaussian-shaped tuning curve around the tuned state, clipped at the sequence boundaries
         for state in range(seq_boundary, seq_boundary + sequenceLength):
             squared_diff = (state - tuned_state) ** 2
-            emissions[state, neuron] = alpha * np.exp(-squared_diff / (2 * sigma ** 2)) + beta  + np.random.normal(scale=epsilon)
+            emissions[state, neuron] = alpha * np.exp(-squared_diff / (2 * sigma ** 2)) + beta  + np.random.normal(loc=0, scale=epsilon)
 
         # clip any emissions that are below a small value to avoid numerical issues with log(0) in the HMM
-        emissions[:, neuron] = np.clip(emissions[:, neuron], a_min=1e-9, a_max=None)
+        emissions[:, neuron] = np.clip(emissions[:, neuron], a_min=1e-20, a_max=None)
 
 
-    # get the paris to assign reverse sequence emissions
+    # get the pairs to assign reverse sequence emissions
     pairs = []
     for seq in range(nSequences):
         for step in range(sequenceLength):
@@ -410,4 +387,4 @@ def assign_emissions(emission_dim, sequenceLength, nSequences, alpha=1, beta=0.1
 if __name__ == "__main__":
 
     # run the main function with some default parameters
-    generate_observations(alpha = 0.1, sequenceLength = 5, nSequences = 2, emission_dim = 100, Nsteps = 20_000, base_save_dir = r'C:\Users\srafi\OneDrive\NeuroStatsLab\sequence-detection-figures', show_plots = True, plot_len = 100, save_obs = True)
+    generate_observations(alpha = 0.1, sequenceLength = 10, nSequences = 5, emission_dim = 100, Nsteps = 20_000, base_save_dir = r'/mnt/home/srafilson/code/sequences', show_plots = True, plot_len = 100, save_obs = True)

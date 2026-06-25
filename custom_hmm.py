@@ -304,6 +304,9 @@ class PoissonHMM:
             # run the forward backwards pass
             A_hat, B_hat, pi_hat = self.forward_backward(transition_update_mask = transition_update_mask, use_cloned_emissions = use_cloned_emissions)
 
+            # clip B_hat to avoid numerical issues with very small or zero rates
+            B_hat = np.clip(B_hat, a_min=1e-9, a_max=None)
+
             # update the transition matrix
             self.A = A_hat
             if transition_update_mask is not None:
@@ -319,6 +322,7 @@ class PoissonHMM:
 
             # update the emissions matrix
             self.B = B_hat
+
 
             # recompute the emissions
             self.compute_emissions()
