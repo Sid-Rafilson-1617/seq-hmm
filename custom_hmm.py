@@ -160,20 +160,19 @@ class PoissonHMM:
 
         log_likelihood = logsumexp(log_alpha[-1])  # scalar
 
-        log_xi = (
-            log_alpha[:-1, :, None]          # (T-1) x N x 1
-            + self.log_A[None, :, :]         # 1 x N x N
-            + self.log_emissions[1:, None, :] # (T-1) x 1 x N
-            + log_beta[1:, None, :]          # (T-1) x 1 x N
-            - log_likelihood
-        )
+        # Build log_xi in-place to avoid holding two (T-1, N, N) arrays simultaneously
+        log_xi = log_alpha[:-1, :, None] + self.log_A[None, :, :]  # (T-1) x N x N
+        log_xi += self.log_emissions[1:, None, :]
+        log_xi += log_beta[1:, None, :]
+        log_xi -= log_likelihood
 
-        # normalize
-        log_xi -= logsumexp(
-            log_xi,
-            axis=(1,2),
-            keepdims=True
-        )
+        # Normalize in-place to avoid scipy logsumexp creating a full (T-1, N, N) copy
+        a_max = log_xi.max(axis=(1, 2), keepdims=True)  # (T-1, 1, 1)
+        log_xi -= a_max
+        np.exp(log_xi, out=log_xi)
+        log_xi /= log_xi.sum(axis=(1, 2), keepdims=True)
+        np.log(log_xi, out=log_xi)
+        log_xi += a_max
 
         return log_xi # (T-1) x N x N
 
@@ -210,11 +209,8 @@ class PoissonHMM:
         log_xi = self.compute_log_xi(self.log_alpha, self.log_beta) # (T-1) x N x N
 
         if transition_update_mask is not None:
-            log_xi = np.where(
-                transition_update_mask,
-                log_xi,
-                -np.inf
-            )
+            # in-place masking avoids allocating a second (T-1, N, N) array
+            log_xi[:, ~transition_update_mask] = -np.inf
 
         # compute gamma
         log_gamma = self.compute_log_gamma(self.log_alpha, self.log_beta) # T x N
@@ -223,8 +219,16 @@ class PoissonHMM:
 
         #---------------------------Maximization---------------------------------
 
-        # numerator
-        log_sum_xi = logsumexp(log_xi, axis = 0)      # N x N
+        # Sum log_xi over time in chunks to avoid scipy logsumexp creating a full (T-1,N,N) copy.
+        # Clamp -inf max values to 0 (mirrors scipy's logsumexp) to avoid -inf - (-inf) = NaN.
+        a_max_t = log_xi.max(axis=0)              # (N, N)
+        a_max_safe = np.where(np.isfinite(a_max_t), a_max_t, 0.0)
+        sum_exp = np.zeros_like(a_max_t)          # (N, N)
+        chunk = 1000
+        for start in range(0, log_xi.shape[0], chunk):
+            np.add(sum_exp, np.exp(log_xi[start:start+chunk] - a_max_safe).sum(axis=0), out=sum_exp)
+        log_sum_xi = np.log(sum_exp) + a_max_safe # (N, N)
+        del log_xi, sum_exp, a_max_safe
 
         # denominator
         log_row_norm = logsumexp(log_sum_xi, axis=1)  # N

@@ -12,7 +12,7 @@ Path(save_dir).mkdir(parents=True, exist_ok=True)
 
 folds = range(10)
 
-nStates = [101]
+nStates = [151]
 
 restarts = range(25)
 start = 24

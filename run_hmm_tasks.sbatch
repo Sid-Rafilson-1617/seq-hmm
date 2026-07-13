@@ -2,9 +2,9 @@
 #SBATCH --job-name=hmm_full
 #SBATCH --output=logs/hmm_full_%j.out
 #SBATCH --error=logs/hmm_full_%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=96
-#SBATCH --cpus-per-task=1
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=48
+#SBATCH --cpus-per-task=2
 #SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=15G
 #SBATCH -C genoa
