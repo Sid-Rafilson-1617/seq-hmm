@@ -7,12 +7,13 @@ task_file.parent.mkdir(exist_ok=True)
 data =  '/mnt/home/srafilson/code/sequences/data/maze_clipped_spike_counts_Bilat_R02_20251106.npz'
 model_params = '/mnt/home/srafilson/code/sequences/co-smoothing-data/best_fit_params.npz'
 
-save_dir = "results_all_cells_20ms/full_fit"
+save_dir = '/mnt/home/srafilson/code/sequences/co-smoothing-data/'
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 
 
 nNeurons = 307
 
+    
 
 with task_file.open("w") as f:
     for neuron_index in range(nNeurons):
