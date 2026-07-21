@@ -7,16 +7,16 @@ task_file.parent.mkdir(exist_ok=True)
 data_dir = '/mnt/home/srafilson/code/sequences/data'
 data = f"{data_dir}/maze_clipped_spike_counts_Bilat_R02_20251106.npz"
 
-save_dir = "results_all_cells_251states_20ms/full_fit"
+save_dir = "results_all_cells_20ms/full_fit"
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 
 
 nStates = [251]
 
-restarts = range(2000)
-#start = 999
-#end = 2000
-#restarts = np.arange(start, end)
+#restarts = range(2000)
+start = 438
+end = 2000
+restarts = np.arange(start, end)
 
 
 with task_file.open("w") as f:
@@ -26,7 +26,7 @@ with task_file.open("w") as f:
 
             cmd = (
                 "python -m fit_one_full "
-                f"--data {data} "
+                f"--model-params {data} "
                 f"--save-dir {save_dir} "
                 f"--nStates {N} "
                 f"--restart {restart} "

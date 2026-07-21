@@ -2,7 +2,7 @@
 #SBATCH --job-name=hmm_full
 #SBATCH --output=logs/hmm_full_%j.out
 #SBATCH --error=logs/hmm_full_%j.err
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=24
 #SBATCH --cpus-per-task=4
 #SBATCH --time=48:00:00
