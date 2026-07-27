@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=96
 #SBATCH --cpus-per-task=1
-#SBATCH --time=12:00:00
+#SBATCH --time=2:00:00
 #SBATCH --mem-per-cpu=15G
 #SBATCH -C genoa
 
